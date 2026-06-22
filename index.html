@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>样品管理系统 - 上海扬雅</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;background:#F5F5F5;color:#333;min-height:100vh}
+.header{background:#07C160;color:#FFF;padding:16px 20px;font-size:18px;font-weight:600;text-align:center;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(7,193,96,0.2)}
+.header .sub{font-size:12px;font-weight:400;opacity:0.85;margin-top:2px}
+.container{max-width:1400px;margin:0 auto;padding:16px}
+
+/* 看板 */
+.dashboard{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat-card{background:#FFF;border-radius:8px;padding:16px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+.stat-card .icon{font-size:28px;margin-bottom:6px}
+.stat-card .num{font-size:32px;font-weight:700;color:#333}
+.stat-card .label{font-size:13px;color:#999;margin-top:4px}
+.stat-card.warn .num{color:#FA5151}
+.stat-card.warn .icon{color:#FA5151}
+
+/* 折叠区 */
+.section{background:#FFF;border-radius:8px;margin-bottom:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+.section-header{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;border-bottom:1px solid #F0F0F0}
+.section-header .title{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+.section-header .arrow{font-size:12px;color:#999;transition:transform 0.2s}
+.section-header.collapsed .arrow{transform:rotate(-90deg)}
+.section-body{padding:16px;display:block}
+.section-body.hidden{display:none}
+
+/* 搜索区 */
+.search-row{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.search-input{flex:1;min-width:200px;display:flex;align-items:center;background:#F5F5F5;border-radius:6px;padding:0 12px;border:1px solid transparent;transition:border-color 0.2s}
+.search-input:focus-within{border-color:#07C160;background:#FFF}
+.search-input input{border:none;background:transparent;outline:none;flex:1;padding:10px 8px;font-size:14px}
+.search-input .s-icon{color:#999;font-size:16px}
+.filter-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.filter-tag{padding:6px 14px;border-radius:20px;font-size:13px;cursor:pointer;border:1px solid #E0E0E0;background:#FFF;transition:all 0.2s;white-space:nowrap}
+.filter-tag:hover{border-color:#07C160;color:#07C160}
+.filter-tag.active{background:#07C160;color:#FFF;border-color:#07C160}
+.filter-tag-grid{display:flex;flex-wrap:wrap;gap:8px;max-height:120px;overflow-y:auto;margin-bottom:8px}
+.clear-btn{background:none;border:none;color:#07C160;font-size:13px;cursor:pointer;padding:6px 0;margin-top:4px}
+
+/* 智能录入 */
+.smart-input-area{display:flex;gap:10px;align-items:center;margin-bottom:16px}
+.smart-input-area textarea{flex:1;min-height:44px;max-height:80px;border:1px solid #E0E0E0;border-radius:6px;padding:10px 12px;font-size:13px;resize:vertical;outline:none;font-family:inherit;transition:border-color 0.2s}
+.smart-input-area textarea:focus{border-color:#07C160}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:8px 18px;border-radius:6px;font-size:14px;cursor:pointer;border:none;transition:all 0.2s;font-family:inherit;white-space:nowrap}
+.btn-primary{background:#07C160;color:#FFF}
+.btn-primary:hover{background:#06AD56}
+.btn-outline{background:#FFF;color:#07C160;border:1px solid #07C160}
+.btn-outline:hover{background:#F0FFF5}
+.btn-danger{background:#FA5151;color:#FFF}
+.btn-danger:hover{background:#E04848}
+.btn-sm{padding:4px 10px;font-size:12px}
+
+/* Tabs */
+.tabs{display:flex;gap:0;border-bottom:2px solid #F0F0F0;margin-bottom:0}
+.tab{padding:10px 20px;font-size:14px;cursor:pointer;color:#666;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all 0.2s;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
+.tab:hover{color:#07C160}
+.tab.active{color:#07C160;border-bottom-color:#07C160;font-weight:600}
+.tab .badge{display:inline-block;background:#F0F0F0;color:#999;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:6px;min-width:18px;text-align:center}
+.tab.active .badge{background:#E8F8EF;color:#07C160}
+
+/* 表格 */
+.table-wrap{overflow-x:auto;border-radius:0 0 8px 8px}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:1200px}
+thead th{background:#FAFAFA;padding:10px 8px;text-align:center;font-weight:600;color:#666;border-bottom:1px solid #F0F0F0;position:sticky;top:0;z-index:1;white-space:nowrap}
+tbody td{padding:8px;text-align:center;border-bottom:1px solid #F0F0F0;vertical-align:middle}
+tbody tr:hover{background:#E8F4FD}
+tbody tr{cursor:default}
+td.formula-col{text-align:left;white-space:normal;word-break:break-all;max-width:300px;min-width:200px}
+td.role-col{text-align:left;white-space:normal;word-break:break-all;max-width:250px;min-width:180px}
+td.editing{padding:2px 4px}
+td.editing input,td.editing textarea{border:2px solid #07C160;border-radius:4px;padding:4px 6px;font-size:13px;width:100%;outline:none;font-family:inherit;text-align:center}
+td.editing textarea{text-align:left;resize:vertical;min-height:40px}
+td.edited{background:#E8F4FD}
+.del-btn{background:none;border:none;color:#FA5151;font-size:18px;cursor:pointer;padding:2px 6px;line-height:1;border-radius:4px;transition:background 0.2s}
+.del-btn:hover{background:#FFF0F0}
+.fb-badge{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:500}
+.fb-badge.has{background:#E8F8EF;color:#07C160;cursor:pointer}
+.fb-badge.none{background:#FFF5F5;color:#FA5151}
+.fb-badge.has:hover{background:#D0F0E0}
+.add-row-btn{display:flex;align-items:center;justify-content:center;gap:4px;padding:10px;color:#07C160;cursor:pointer;font-size:13px;border-top:1px dashed #E0E0E0;transition:background 0.2s}
+.add-row-btn:hover{background:#F0FFF5}
+.ingredient-toggle{text-align:right;margin-bottom:8px}
+
+/* 弹窗 */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center}
+.modal-overlay.show{display:flex}
+.modal{background:#FFF;border-radius:12px;width:90%;max-width:600px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.15)}
+.modal-header{padding:16px 20px;border-bottom:1px solid #F0F0F0;display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:16px}
+.modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:#999;padding:4px;line-height:1}
+.modal-body{padding:20px}
+.modal-body .fb-field{margin-bottom:12px}
+.modal-body .fb-field label{display:block;font-size:12px;color:#999;margin-bottom:4px}
+.modal-body .fb-field input,.modal-body .fb-field textarea{width:100%;border:1px solid #E0E0E0;border-radius:6px;padding:8px 12px;font-size:14px;outline:none;font-family:inherit}
+.modal-body .fb-field textarea{min-height:80px;resize:vertical}
+.modal-body .fb-field input:focus,.modal-body .fb-field textarea:focus{border-color:#07C160}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;padding:16px 20px;border-top:1px solid #F0F0F0}
+
+/* 导出按钮区 */
+.action-bar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.empty-state{text-align:center;padding:40px;color:#CCC;font-size:14px}
+
+@media(max-width:768px){
+.dashboard{grid-template-columns:repeat(2,1fr)}
+.search-row{flex-direction:column}
+.tab{padding:10px 12px;font-size:13px}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+样品管理系统
+<div class="sub">上海扬雅国际贸易有限公司 · 蓝瓶送样与反馈管理</div>
+</div>
+
+<div class="container">
+
+<!-- 数据看板 -->
+<div class="dashboard" id="dashboard"></div>
+
+<!-- 搜索筛选区 -->
+<div class="section">
+<div class="section-header" id="filterToggle">
+<span class="title">搜索与筛选</span>
+<span class="arrow">▼</span>
+</div>
+<div class="section-body" id="filterBody">
+<div class="search-row">
+<div class="search-input"><span class="s-icon">🔍</span><input type="text" id="keywordSearch" placeholder="搜索全部字段..."></div>
+<div class="search-input"><span class="s-icon">📋</span><input type="text" id="codeSearch" placeholder="样品编号..."></div>
+</div>
+<div style="font-size:12px;color:#999;margin-bottom:6px;font-weight:500">送样月份</div>
+<div class="filter-tags" id="monthTags"></div>
+<div style="font-size:12px;color:#999;margin-bottom:6px;font-weight:500">打样类型</div>
+<div class="filter-tag-grid" id="typeTags"></div>
+<div style="margin-top:6px"><button class="clear-btn" id="clearFilter">清除所有筛选</button></div>
+</div>
+</div>
+
+<!-- 智能分类录入 -->
+<div class="section">
+<div class="section-header" id="smartToggle">
+<span class="title">智能分类录入</span>
+<span class="arrow">▼</span>
+</div>
+<div class="section-body" id="smartBody">
+<div class="smart-input-area">
+<textarea id="smartInput" placeholder="粘贴文本，自动识别分类信息...
+例如：2026-06-20 Hack 蓝瓶 老盐菠萝饮料浓浆 SPN-AG400-PAL 300g/瓶 2 闫世强"></textarea>
+<button class="btn btn-primary" id="smartParseBtn">智能解析</button>
+</div>
+<div id="smartResult" style="font-size:12px;color:#999;margin-top:8px"></div>
+</div>
+</div>
+
+<!-- 表格区 -->
+<div class="section">
+<div class="tabs" id="tabs">
+<button class="tab active" data-tab="all">全部<span class="badge" id="badgeAll">0</span></button>
+<button class="tab" data-tab="sample">送样<span class="badge" id="badgeSample">0</span></button>
+<button class="tab" data-tab="feedback">反馈<span class="badge" id="badgeFeedback">0</span></button>
+<button class="tab" data-tab="hasFeedback">有反馈<span class="badge" id="badgeHasFeedback">0</span></button>
+</div>
+
+<div class="action-bar" style="padding:12px 16px 8px">
+<button class="btn btn-outline btn-sm" id="toggleIngredient">隐藏配料作用</button>
+<button class="btn btn-primary btn-sm" id="exportBtn">导出 CSV</button>
+</div>
+
+<div class="table-wrap" id="tableContainer"></div>
+<div class="add-row-btn" id="addSampleRow">+ 添加送样记录</div>
+<div class="add-row-btn" id="addFeedbackRow" style="display:none">+ 添加反馈记录</div>
+</div>
+
+</div>
+
+<!-- 反馈弹窗 -->
+<div class="modal-overlay" id="fbModalOverlay">
+<div class="modal">
+<div class="modal-header">
+<span id="fbModalTitle">反馈详情</span>
+<button class="modal-close" id="fbModalClose">✕</button>
+</div>
+<div class="modal-body" id="fbModalBody"></div>
+</div>
+</div>
+
+<!-- 添加反馈弹窗 -->
+<div class="modal-overlay" id="addFbModalOverlay">
+<div class="modal">
+<div class="modal-header">
+<span>添加反馈记录</span>
+<button class="modal-close" id="addFbModalClose">✕</button>
+</div>
+<div class="modal-body">
+<div class="fb-field"><label>产品代号</label><input type="text" id="addFbCode" placeholder="输入产品代号自动匹配..."></div>
+<div class="fb-field"><label>送样产品</label><input type="text" id="addFbProduct" placeholder="自动填充"></div>
+<div class="fb-field"><label>送样日期</label><input type="text" id="addFbDate" placeholder="自动填充"></div>
+<div class="fb-field"><label>测试反馈</label><textarea id="addFbTest" placeholder="输入测试反馈内容..."></textarea></div>
+<div class="fb-field"><label>确认状态</label><input type="text" id="addFbConfirm" placeholder="已确认/待确认"></div>
+<div class="fb-field"><label>报价</label><input type="text" id="addFbQuoted" placeholder="已报价/待报价"></div>
+<div class="fb-field"><label>备注</label><textarea id="addFbRemark" placeholder="备注信息..."></textarea></div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-outline" id="addFbCancel">取消</button>
+<button class="btn btn-primary" id="addFbSubmit">确认添加</button>
+</div>
+</div>
+</div>
+
+<script>
+// ===== 数据定义 =====
+var sampleRecords;
+var feedbackRecords;
+var currentTab;
+var showIngredientRole;
+var editedCells;
+
+sampleRecords = [
+{no:1,reqDate:"2026-05-26",contact:"Hack",dept:"蓝瓶",sampleType:"凤梨百香果复合饮料浓浆",sampleNo:"SMX-AGB32-PAL",spec:"300g/瓶",quantity:2,formula:"水、菠萝汁、白砂糖、百香果汁、菠萝浓缩汁、柠檬酸、维生素C、果胶、食用香精、黄原胶",ingredientRole:"菠萝汁与菠萝浓缩汁构成主体凤梨风味基底，百香果汁赋予复合果香层次感，柠檬酸调节酸甜平衡，维生素C起抗氧化护色作用，果胶与黄原胶复配提供浓浆稠度与悬浮稳定性。",channel:"否",sendDate:"2026-05-27",arriveDate:"2026-05-28",maker:"闫世强",remark:""},
+{no:2,reqDate:"2026-05-26",contact:"Hack",dept:"蓝瓶",sampleType:"草莓饮料浓浆（未调香）",sampleNo:"SSB-AG377-PAD",spec:"300g/瓶",quantity:2,formula:"红颜草莓浆、水、果葡糖浆、白砂糖、浓缩苹果汁、柠檬酸、黄原胶、羧甲基纤维素钠",ingredientRole:"红颜草莓浆提供天然草莓风味与色泽，果葡糖浆与白砂糖构建甜味基础，浓缩苹果汁补充果香饱满度，黄原胶与羧甲基纤维素钠协同增稠确保质地均匀。",channel:"否",sendDate:"2026-05-27",arriveDate:"2026-05-28",maker:"闫世强",remark:""},
+{no:3,reqDate:"2026-05-26",contact:"Hack",dept:"蓝瓶",sampleType:"草莓饮料浓浆（调香）",sampleNo:"SSB-AG378-PAD",spec:"300g/瓶",quantity:2,formula:"红颜草莓浆、水、果葡糖浆、白砂糖、浓缩苹果汁、食用香精、柠檬酸、黄原胶、羧甲基纤维素钠",ingredientRole:"在未调香版本基础上添加食用香精强化草莓香气表现力，红颜草莓浆提供真实果肉感与色泽基底，黄原胶与CMC复配增稠体系保持浓浆稳定性。",channel:"否",sendDate:"2026-05-27",arriveDate:"2026-05-28",maker:"闫世强",remark:""},
+{no:4,reqDate:"2026-05-26",contact:"Hack",dept:"蓝瓶",sampleType:"复合莓饮料浓浆(未调香)",sampleNo:"SMX-AGB33-PAD",spec:"300g/瓶",quantity:2,formula:"水、蓝莓汁、草莓浆、白砂糖、苹果浓缩汁、果葡糖浆、树莓汁、DL苹果酸、维生素C、柠檬酸、黄原胶、羧甲基纤维素钠",ingredientRole:"蓝莓汁与树莓汁提供复合莓果风味骨架，草莓浆增加柔和甜感，果葡糖浆与白砂糖平衡酸甜，DL苹果酸与柠檬酸协同调酸，维生素C抗氧化护色，黄原胶与CMC复配增稠。",channel:"否",sendDate:"2026-05-27",arriveDate:"2026-05-28",maker:"闫世强",remark:""},
+{no:5,reqDate:"2026-05-26",contact:"Hack",dept:"蓝瓶",sampleType:"复合莓饮料浓浆(调香)",sampleNo:"SMX-AGB34-PAD",spec:"300g/瓶",quantity:2,formula:"水、蓝莓汁、草莓浆、白砂糖、苹果浓缩汁、果葡糖浆、树莓汁、DL苹果酸、食用香精、维生素C、柠檬酸、黄原胶、羧甲基纤维素钠",ingredientRole:"在未调香版本基础上添加食用香精增强莓果复合香气，蓝莓汁与树莓汁提供天然莓果风味，DL苹果酸与柠檬酸构建清爽酸感，维生素C起到抗氧化与护色双重作用。",channel:"否",sendDate:"2026-05-27",arriveDate:"2026-05-28",maker:"闫世强",remark:""},
+{no:6,reqDate:"2026-05-26",contact:"Hack",dept:"蓝瓶",sampleType:"脐橙血橙复合橙汁饮料浓浆（未调香）",sampleNo:"SOL-AG596-FAD",spec:"300g/瓶",quantity:2,formula:"橙汁、白砂糖、水、橙浓缩汁、柠檬酸、玫瑰茄浓缩汁、β-胡萝卜素",ingredientRole:"橙汁与橙浓缩汁构建浓郁橙香主体，玫瑰茄浓缩汁提供天然红色调与微酸口感，柠檬酸增强酸感层次，β-胡萝卜素补充色泽并兼具营养强化作用。",channel:"否",sendDate:"2026-05-28",arriveDate:"2026-05-29",maker:"闫世强",remark:""},
+{no:7,reqDate:"2026-05-26",contact:"Hack",dept:"蓝瓶",sampleType:"脐橙血橙复合橙汁饮料浓浆（调香）",sampleNo:"SOL-AG595-FAD",spec:"300g/瓶",quantity:2,formula:"橙汁、白砂糖、水、橙浓缩汁、柠檬酸、玫瑰茄浓缩汁、食用香精、β-胡萝卜素",ingredientRole:"在未调香版本基础上添加食用香精增强橙香表现，橙汁与橙浓缩汁确保真实果汁感，玫瑰茄浓缩汁赋予天然色泽与微酸层次，β-胡萝卜素兼具着色与营养功能。",channel:"否",sendDate:"2026-05-28",arriveDate:"2026-05-29",maker:"闫世强",remark:""},
+{no:8,reqDate:"2026-06-01",contact:"Hack",dept:"蓝瓶",sampleType:"老盐菠萝复合饮料浓浆",sampleNo:"SPN-AG383-PAL",spec:"300g/瓶",quantity:1,formula:"菠萝汁、白砂糖、百香果汁、水、食用香精、老盐、柠檬酸、DL苹果酸、维生素C",ingredientRole:"菠萝汁与百香果汁构成热带水果风味主体，老盐提供独特的咸甜平衡感与回味，柠檬酸与DL苹果酸协同建立清爽酸感体系，维生素C抗氧化护色。",channel:"否",sendDate:"2026-06-03",arriveDate:"2026-06-04",maker:"闫世强",remark:""},
+{no:9,reqDate:"2026-06-04",contact:"Hack",dept:"蓝瓶",sampleType:"紫苏莓果复合饮料浓浆",sampleNo:"SMX-AGB59-PAD",spec:"300g/瓶",quantity:1,formula:"水、红颜草莓浆、白砂糖、苹果汁、浓缩苹果汁、紫苏汁、树莓浆、食用香精、DL苹果酸、黄原胶",ingredientRole:"红颜草莓浆与树莓浆提供莓果复合风味基底，紫苏汁赋予独特的草本清香与差异化口感，苹果汁与浓缩苹果汁增加果香饱满度，DL苹果酸调节酸感，黄原胶增稠稳定。",channel:"否",sendDate:"2026-06-08",arriveDate:"2026-06-10",maker:"闫世强",remark:""},
+{no:10,reqDate:"2026-06-04",contact:"Hack",dept:"蓝瓶",sampleType:"紫苏莓果复合饮料浓浆",sampleNo:"SMX-AGB60-PAD",spec:"300g/瓶",quantity:1,formula:"水、白砂糖、红颜草莓浆、苹果汁、浓缩苹果汁、树莓浆、紫苏汁、食用香精、柠檬酸、黄原胶",ingredientRole:"配方调整白砂糖前置以优化甜感释放顺序，红颜草莓浆与树莓浆构建莓果风味，紫苏汁提供草本香气点缀，柠檬酸替代DL苹果酸使酸感更柔和直接，黄原胶保持浓浆质地。",channel:"否",sendDate:"2026-06-09",arriveDate:"2026-06-10",maker:"闫世强",remark:""},
+{no:11,reqDate:"2026-06-04",contact:"Hack",dept:"蓝瓶",sampleType:"苹果葡萄复合汁饮料浓浆",sampleNo:"SMX-AGB57-PAL",spec:"300g/瓶",quantity:1,formula:"苹果汁、水、夏黑葡萄汁、白砂糖、葡萄浓缩汁、食用香精、DL苹果酸、维生素C、酒石酸、黄原胶",ingredientRole:"苹果汁提供清甜果香基底，夏黑葡萄汁与葡萄浓缩汁构建葡萄风味层次，酒石酸赋予葡萄特有的天然酸感，DL苹果酸补充酸度，维生素C抗氧化护色，黄原胶增稠。",channel:"否",sendDate:"2026-06-09",arriveDate:"2026-06-10",maker:"闫世强",remark:""},
+{no:12,reqDate:"2026-06-04",contact:"Hack",dept:"蓝瓶",sampleType:"苹果葡萄复合汁饮料浓浆",sampleNo:"SMX-AGB58-PAL",spec:"300g/瓶",quantity:1,formula:"水、苹果汁、夏黑葡萄汁、白砂糖、葡萄浓缩汁、食用香精、DL苹果酸、维生素C、酒石酸、黄原胶",ingredientRole:"以水为溶剂调整浓浆稀释比例，苹果汁与夏黑葡萄汁提供真实果汁基底，葡萄浓缩汁增强风味浓度，酒石酸赋予葡萄特征酸感，DL苹果酸与维生素C协同护色抗氧化。",channel:"否",sendDate:"2026-06-09",arriveDate:"2026-06-10",maker:"闫世强",remark:""},
+{no:13,reqDate:"2026-06-05",contact:"Hack",dept:"蓝瓶",sampleType:"老盐菠萝饮料浓浆",sampleNo:"SPN-AG384-PAL",spec:"300g/瓶",quantity:1,formula:"菠萝汁、白砂糖、百香果汁、水、浓缩苹果汁、柠檬酸、DL苹果酸、老盐、食用香精、维生素C",ingredientRole:"菠萝汁与百香果汁构建热带水果风味，浓缩苹果汁增加果香厚度与甜感支撑，老盐提供咸甜交织的独特回味，柠檬酸与DL苹果酸复配优化酸感曲线，维生素C抗氧化。",channel:"否",sendDate:"2026-06-07",arriveDate:"2026-06-08",maker:"闫世强",remark:""},
+{no:14,reqDate:"2026-06-05",contact:"Hack",dept:"蓝瓶",sampleType:"老盐菠萝饮料浓浆",sampleNo:"SPN-AG385-PAL",spec:"300g/瓶",quantity:1,formula:"菠萝汁、白砂糖、百香果汁、水、浓缩苹果汁、柠檬酸、DL苹果酸、食用香精、老盐、维生素C",ingredientRole:"食用香精配方位置前移以调整香气释放时序，菠萝汁与百香果汁提供天然果味，浓缩苹果汁增加饱满度，老盐赋予咸甜平衡，柠檬酸与DL苹果酸构建清爽酸感体系。",channel:"否",sendDate:"2026-06-07",arriveDate:"2026-06-08",maker:"闫世强",remark:""},
+{no:15,reqDate:"2026-06-05",contact:"Hack",dept:"蓝瓶",sampleType:"老盐菠萝饮料浓浆",sampleNo:"SPN-AG386-PAL",spec:"300g/瓶",quantity:1,formula:"菠萝汁、白砂糖、百香果汁、水、浓缩苹果汁、食用香精、柠檬酸、DL苹果酸、老盐、维生素C",ingredientRole:"食用香精前置于浓缩苹果汁之后以优先释放香气，配方结构与385基本一致但配料顺序微调，旨在对比香精添加位置对风味呈现的影响，老盐维持特征咸甜回甘。",channel:"否",sendDate:"2026-06-07",arriveDate:"2026-06-08",maker:"闫世强",remark:""},
+{no:16,reqDate:"2026-06-09",contact:"Hack",dept:"蓝瓶",sampleType:"老盐菠萝饮料浓浆",sampleNo:"SPN-AG386-PAL",spec:"1kg/瓶",quantity:2,formula:"菠萝汁、白砂糖、百香果汁、水、浓缩苹果汁、食用香精、柠檬酸、DL苹果酸、老盐、维生素C",ingredientRole:"与#15同配方放大规格至1kg/瓶，菠萝汁与百香果汁提供热带水果风味，食用香精强化香气，老盐构建咸甜交织的独特口感记忆点，柠檬酸与DL苹果酸平衡酸甜。",channel:"否",sendDate:"2026-06-11",arriveDate:"2026-06-12",maker:"闫世强",remark:""},
+{no:17,reqDate:"2026-06-09",contact:"Hack",dept:"蓝瓶",sampleType:"老盐菠萝饮料浓浆",sampleNo:"SPN-AG388-PAL",spec:"300g/瓶",quantity:1,formula:"菠萝汁、白砂糖、百香果汁、水、浓缩苹果汁、柠檬酸、DL苹果酸、老盐、维生素C",ingredientRole:"移除食用香精以测试纯天然果汁体系的风味表现，菠萝汁与百香果汁提供基础果味，浓缩苹果汁补充甜感，老盐构建咸甜平衡，柠檬酸与DL苹果酸复配调酸。",channel:"否",sendDate:"2026-06-11",arriveDate:"2026-06-12",maker:"闫世强",remark:""},
+{no:18,reqDate:"2026-06-09",contact:"Hack",dept:"蓝瓶",sampleType:"老盐菠萝饮料浓浆",sampleNo:"SPN-AG389-PAL",spec:"300g/瓶",quantity:1,formula:"菠萝汁、白砂糖、百香果汁、水、浓缩苹果汁、柠檬酸、DL苹果酸、老盐、维生素C",ingredientRole:"配方与388基本一致（原料表中菠萝汁为正确写法），旨在验证无香精体系下风味完整性，菠萝汁与百香果汁提供天然果香基底，老盐提供独特咸甜回味。",channel:"否",sendDate:"2026-06-11",arriveDate:"2026-06-12",maker:"闫世强",remark:""},
+{no:19,reqDate:"2026-06-12",contact:"Hack",dept:"蓝瓶",sampleType:"老盐菠萝饮料浓浆",sampleNo:"SPN-AG390-PAL",spec:"300g/瓶",quantity:1,formula:"菠萝汁、白砂糖、百香果汁、水、浓缩苹果汁、香茅草汁、柠檬酸、DL苹果酸、老盐、柠檬酸钠、维生素C",ingredientRole:"创新引入香茅草汁提供清新草本香气，菠萝汁与百香果汁维持热带水果基底，柠檬酸钠作为缓冲盐调节酸感柔和度，老盐保持特征咸甜平衡，维生素C抗氧化。",channel:"否",sendDate:"2026-06-13",arriveDate:"2026-06-14",maker:"闫世强",remark:""},
+{no:20,reqDate:"2026-06-12",contact:"Hack",dept:"蓝瓶",sampleType:"老盐菠萝饮料浓浆",sampleNo:"SPN-AG391-PAL",spec:"300g/瓶",quantity:1,formula:"菠萝汁、白砂糖、百香果汁、水、浓缩苹果汁、香茅草汁、柠檬酸、DL苹果酸、老盐、柠檬酸钠、维生素C",ingredientRole:"与390配方一致（391为同配方不同编号），香茅草汁赋予独特草本清香差异化风味，柠檬酸钠缓冲酸感使口感更圆润，老盐提供标志性咸甜回甘，维生素C护色。",channel:"否",sendDate:"2026-06-13",arriveDate:"2026-06-14",maker:"闫世强",remark:""},
+{no:21,reqDate:"2026-06-15",contact:"Hack",dept:"蓝瓶",sampleType:"老盐菠萝饮料浓浆",sampleNo:"SPN-AG391-PAL",spec:"1kg/瓶",quantity:2,formula:"菠萝汁、白砂糖、百香果汁、水、浓缩苹果汁、香茅草汁、柠檬酸、DL苹果酸、老盐、柠檬酸钠、维生素C",ingredientRole:"391配方放大至1kg规格，香茅草汁持续提供清新草本差异化风味，柠檬酸钠缓和酸感使口感圆润，老盐构建独特咸甜记忆点，菠萝汁与百香果汁保持热带水果风味主体。",channel:"否",sendDate:"2026-06-16",arriveDate:"2026-06-17",maker:"闫世强",remark:""},
+{no:22,reqDate:"2026-06-12",contact:"Hack",dept:"蓝瓶",sampleType:"苹果葡萄复合汁饮料浓浆",sampleNo:"SMX-AGB80-PAL",spec:"300g/瓶",quantity:1,formula:"苹果汁、夏黑葡萄汁、水、白砂糖、浓缩葡萄汁、食用香精、DL苹果酸、浓缩山葡萄汁、维生素C、酒石酸、黄原胶",ingredientRole:"苹果汁提供清甜基底，夏黑葡萄汁与浓缩葡萄汁构建葡萄风味层次，浓缩山葡萄汁创新引入赋予发酵感与醇厚尾韵，酒石酸提供葡萄特征酸感，DL苹果酸协同调酸。",channel:"否",sendDate:"2026-06-16",arriveDate:"2026-06-17",maker:"闫世强",remark:""},
+{no:23,reqDate:"2026-06-12",contact:"Hack",dept:"蓝瓶",sampleType:"苹果葡萄复合汁饮料浓浆",sampleNo:"SMX-AGB81-PAL",spec:"300g/瓶",quantity:1,formula:"苹果汁、夏黑葡萄汁、水、白砂糖、浓缩葡萄汁、食用香精、DL苹果酸、浓缩山葡萄汁、维生素C、酒石酸、黄原胶",ingredientRole:"与80配方完全一致（81为平行样），浓缩山葡萄汁提供山葡萄特有的发酵香气与酵感，酒石酸增强葡萄品类特征酸，DL苹果酸与维生素C协同抗氧化护色。",channel:"否",sendDate:"2026-06-16",arriveDate:"2026-06-17",maker:"闫世强",remark:""},
+{no:24,reqDate:"2026-06-12",contact:"Hack",dept:"蓝瓶",sampleType:"紫苏莓果复合饮料浓浆",sampleNo:"SMX-AGB83-PAD",spec:"300g/瓶",quantity:1,formula:"水、白砂糖、红颜草莓浆、苹果汁、浓缩苹果汁、树莓浆、紫苏汁、食用香精、柠檬酸、黄原胶",ingredientRole:"白砂糖前置优化甜感释放，红颜草莓浆与树莓浆提供莓果复合风味，紫苏汁赋予草本清香差异化口感，柠檬酸提供清爽酸感（对比59/60的DL苹果酸方案），黄原胶增稠稳定。",channel:"否",sendDate:"2026-06-16",arriveDate:"2026-06-17",maker:"闫世强",remark:""},
+{no:25,reqDate:"2026-06-12",contact:"Hack",dept:"蓝瓶",sampleType:"紫苏莓果复合饮料浓浆",sampleNo:"SMX-AGB84-PAD",spec:"300g/瓶",quantity:1,formula:"水、白砂糖、红颜草莓浆、苹果汁、浓缩苹果汁、树莓浆、紫苏汁、食用香精、柠檬酸、黄原胶",ingredientRole:"与83配方一致（84为平行样），红颜草莓浆与树莓浆构建莓果风味主体，紫苏汁提供独特草本香韵点缀，柠檬酸替代DL苹果酸使酸感更直接清爽，黄原胶保持浓浆质地均匀。",channel:"否",sendDate:"2026-06-16",arriveDate:"2026-06-17",maker:"闫世强",remark:""}
+];
+
+feedbackRecords = [
+{sendDate:"2026-05-27",product:"凤梨百香果复合饮料浓浆",productCode:"SMX-AGB32-PAL",testFeedback:"",confirmed:"",quoted:"",remark:""},
+{sendDate:"2026-05-27",product:"草莓饮料浓浆（未调香）",productCode:"SSB-AG377-PAD",testFeedback:"",confirmed:"",quoted:"",remark:""},
+{sendDate:"2026-05-27",product:"草莓饮料浓浆（调香）",productCode:"SSB-AG378-PAD",testFeedback:"",confirmed:"",quoted:"",remark:""},
+{sendDate:"2026-05-27",product:"复合莓饮料浓浆(未调香)",productCode:"SMX-AGB33-PAD",testFeedback:"",confirmed:"",quoted:"",remark:""},
+{sendDate:"2026-05-27",product:"复合莓饮料浓浆(调香)",productCode:"SMX-AGB34-PAD",testFeedback:"",confirmed:"",quoted:"",remark:""},
+{sendDate:"2026-05-28",product:"脐橙血橙复合橙汁饮料浓浆（未调香）",productCode:"SOL-AG596-FAD",testFeedback:"",confirmed:"",quoted:"",remark:""},
+{sendDate:"2026-05-28",product:"脐橙血橙复合橙汁饮料浓浆（调香）",productCode:"SOL-AG595-FAD",testFeedback:"",confirmed:"",quoted:"",remark:""},
+{sendDate:"2026-06-03",product:"老盐菠萝复合饮料浓浆",productCode:"SPN-AG383-PAL",testFeedback:"有菠萝罐头的味道，凤梨味假，咸度降低，百香果风味加强",confirmed:"",quoted:"",remark:""},
+{sendDate:"2026-06-08",product:"老盐菠萝复合饮料浓浆",productCode:"SPN-AG384-PAL",testFeedback:"老盐菠萝饮料浓浆 388,389，对标386，菠萝和百香果的风味的强度都不够，没有主体风味，百香果风味有，但强度不足，伴随一些不愉悦的生味",confirmed:"",quoted:"",remark:""},
+{sendDate:"2026-06-08",product:"老盐菠萝复合饮料浓浆",productCode:"SPN-AG385-PAL",testFeedback:"老盐菠萝饮料浓浆 388,389，对标386，菠萝和百香果的风味的强度都不够，没有主体风味，百香果风味有，但强度不足，伴随一些不愉悦的生味",confirmed:"",quoted:"",remark:""},
+{sendDate:"2026-06-08",product:"老盐菠萝复合饮料浓浆",productCode:"SPN-AG386-PAL",testFeedback:"",confirmed:"",quoted:"",remark:""},
+{sendDate:"2026-06-10",product:"紫苏复合莓果饮料浓浆",productCode:"SMX-AGB59-PAD",testFeedback:"59-60两只样品的紫苏味都过重，莓果的风味不够突出",confirmed:"",quoted:"",remark:""},
+{sendDate:"2026-06-10",product:"紫苏复合莓果饮料浓浆",productCode:"SMX-AGB60-PAD",testFeedback:"60的样品稍有莓果的香气，但风味不明显，需要在60的基础上，降低紫苏的风味，提升莓果的风味感知，主要以树莓为主，其他莓果风味为辅",confirmed:"",quoted:"",remark:"紫苏梅果的风味要突出，同时复合其他梅果香气。参考上允的树莓酱，山姆复合梅果汁"},
+{sendDate:"2026-06-10",product:"苹果葡萄复合汁饮料浓浆",productCode:"SMX-AGB57-PAL",testFeedback:"苹果风味感知弱，可稍微提升苹果的风味表现，另外，葡萄的层次感也需要调整，可稍增加一些山葡萄带来的香气和酵感",confirmed:"",quoted:"",remark:"葡萄的风味要有发酵感，后段风味加强，参考山葡萄标样"},
+{sendDate:"2026-06-10",product:"苹果葡萄复合汁饮料浓浆",productCode:"SMX-AGB58-PAL",testFeedback:"苹果风味感知弱，可稍微提升苹果的风味表现，另外，葡萄的层次感也需要调整，可稍增加一些山葡萄带来的香气和酵感",confirmed:"",quoted:"",remark:""}
+];
+
+currentTab = "all";
+showIngredientRole = true;
+editedCells = {};
+
+// ===== 工具函数 =====
+function getFeedbackByCode(code){
+  for(var i=0;i<feedbackRecords.length;i++){
+    if(feedbackRecords[i].productCode===code) return feedbackRecords[i];
+  }
+  return null;
+}
+
+function hasTestFeedback(code){
+  var fb=getFeedbackByCode(code);
+  return fb && fb.testFeedback && fb.testFeedback.trim()!=="";
+}
+
+function esc(s){
+  var result=s?String(s):"";
+  result=result.split("&").join("&amp;");
+  result=result.split("<").join("&lt;");
+  result=result.split(">").join("&gt;");
+  return result;
+}
+
+// ===== 统计看板 =====
+function renderDashboard(){
+  var totalSample=sampleRecords.length;
+  var totalFeedback=feedbackRecords.length;
+  var hasFbCount=0;
+  var codesWithFb={};
+  for(var i=0;i<feedbackRecords.length;i++){
+    if(feedbackRecords[i].testFeedback && feedbackRecords[i].testFeedback.trim()!==""){
+      codesWithFb[feedbackRecords[i].productCode]=true;
+    }
+  }
+  hasFbCount=Object.keys(codesWithFb).length;
+  var pendingCount=totalSample - hasFbCount;
+
+  var html="";
+  html+="<div class=\"stat-card\"><div class=\"icon\">📦</div><div class=\"num\">"+totalSample+"</div><div class=\"label\">总送样记录</div></div>";
+  html+="<div class=\"stat-card\"><div class=\"icon\">📋</div><div class=\"num\">"+totalFeedback+"</div><div class=\"label\">反馈记录</div></div>";
+  html+="<div class=\"stat-card\"><div class=\"icon\">✅</div><div class=\"num\">"+hasFbCount+"</div><div class=\"label\">有测试反馈</div></div>";
+  html+="<div class=\"stat-card warn\"><div class=\"icon\">⏳</div><div class=\"num\">"+pendingCount+"</div><div class=\"label\">待反馈</div></div>";
+  document.getElementById("dashboard").innerHTML=html;
+}
+
+// ===== 筛选器 =====
+function getMonths(){
+  var months={};
+  for(var i=0;i<sampleRecords.length;i++){
+    var m=sampleRecords[i].sendDate.substring(0,7);
+    months[m]=true;
+  }
+  return Object.keys(months).sort();
+}
+
+function getSampleTypes(){
+  var types={};
+  for(var i=0;i<sampleRecords.length;i++){
+    types[sampleRecords[i].sampleType]=true;
+  }
+  return Object.keys(types).sort();
+}
+
+var activeMonth=null;
+var activeTypes={};
+
+function renderFilters(){
+  var months=getMonths();
+  var mHtml="<span class=\"filter-tag"+(activeMonth===null?" active":"")+"\" data-month=\"\">全部</span>";
+  for(var i=0;i<months.length;i++){
+    mHtml+="<span class=\"filter-tag"+(activeMonth===months[i]?" active":"")+"\" data-month=\""+months[i]+"\">"+months[i]+"</span>";
+  }
+  document.getElementById("monthTags").innerHTML=mHtml;
+
+  var types=getSampleTypes();
+  var tHtml="";
+  for(var i=0;i<types.length;i++){
+    tHtml+="<span class=\"filter-tag"+(activeTypes[types[i]]?" active":"")+"\" data-type=\""+types[i]+"\">"+types[i]+"</span>";
+  }
+  document.getElementById("typeTags").innerHTML=tHtml;
+
+  bindFilterEvents();
+}
+
+function bindFilterEvents(){
+  var monthTags=document.querySelectorAll("#monthTags .filter-tag");
+  for(var i=0;i<monthTags.length;i++){
+    monthTags[i].onclick=function(){
+      var m=this.getAttribute("data-month");
+      activeMonth=(m==="")?null:m;
+      renderFilters();
+      renderTables();
+    };
+  }
+  var typeTags=document.querySelectorAll("#typeTags .filter-tag");
+  for(var i=0;i<typeTags.length;i++){
+    typeTags[i].onclick=function(){
+      var t=this.getAttribute("data-type");
+      if(activeTypes[t]){delete activeTypes[t];}
+      else{activeTypes[t]=true;}
+      renderFilters();
+      renderTables();
+    };
+  }
+  document.getElementById("clearFilter").onclick=function(){
+    activeMonth=null;
+    activeTypes={};
+    document.getElementById("keywordSearch").value="";
+    document.getElementById("codeSearch").value="";
+    renderFilters();
+    renderTables();
+  };
+}
+
+function getFilteredSamples(){
+  var keyword=document.getElementById("keywordSearch").value.trim().toLowerCase();
+  var codeFilter=document.getElementById("codeSearch").value.trim().toLowerCase();
+  var result=[];
+  for(var i=0;i<sampleRecords.length;i++){
+    var r=sampleRecords[i];
+    if(activeMonth!==null && r.sendDate.substring(0,7)!==activeMonth) continue;
+    var typeKeys=Object.keys(activeTypes);
+    if(typeKeys.length>0 && !activeTypes[r.sampleType]) continue;
+    if(codeFilter && r.sampleNo.toLowerCase().indexOf(codeFilter)===-1) continue;
+    if(keyword){
+      var allFields=[r.reqDate,r.contact,r.dept,r.sampleType,r.sampleNo,r.spec,String(r.quantity),r.formula,r.ingredientRole,r.channel,r.sendDate,r.arriveDate,r.maker,r.remark].join(" ").toLowerCase();
+      if(allFields.indexOf(keyword)===-1) continue;
+    }
+    result.push({idx:i,record:r});
+  }
+  return result;
+}
+
+function getFilteredFeedbacks(filteredSampleNos){
+  var result=[];
+  var nosMap={};
+  if(filteredSampleNos){
+    for(var i=0;i<filteredSampleNos.length;i++){nosMap[filteredSampleNos[i]]=true;}
+  }
+  for(var i=0;i<feedbackRecords.length;i++){
+    var fb=feedbackRecords[i];
+    if(filteredSampleNos && !nosMap[fb.productCode]) continue;
+    result.push({idx:i,record:fb});
+  }
+  return result;
+}
+
+function getFilteredSampleNos(){
+  var filtered=getFilteredSamples();
+  var nos=[];
+  for(var i=0;i<filtered.length;i++){nos.push(filtered[i].record.sampleNo);}
+  return nos;
+}
+
+// ===== 表格渲染 =====
+function renderTables(){
+  var filteredSamples=getFilteredSamples();
+  var sampleNos=getFilteredSampleNos();
+  var filteredFeedbacks=getFilteredFeedbacks(sampleNos);
+
+  document.getElementById("badgeAll").textContent=filteredSamples.length;
+  document.getElementById("badgeSample").textContent=filteredSamples.length;
+  document.getElementById("badgeFeedback").textContent=filteredFeedbacks.length;
+  var hasFbFiltered=0;
+  for(var i=0;i<filteredFeedbacks.length;i++){
+    if(filteredFeedbacks[i].record.testFeedback && filteredFeedbacks[i].record.testFeedback.trim()!=="") hasFbFiltered++;
+  }
+  document.getElementById("badgeHasFeedback").textContent=hasFbFiltered;
+
+  var isFeedbackTab=(currentTab==="feedback");
+  var isHasFeedbackTab=(currentTab==="hasFeedback");
+  var isSampleTab=(currentTab==="sample");
+
+  var container=document.getElementById("tableContainer");
+  var addSampleBtn=document.getElementById("addSampleRow");
+  var addFbBtn=document.getElementById("addFeedbackRow");
+
+  if(isFeedbackTab){
+    addSampleBtn.style.display="none";
+    addFbBtn.style.display="flex";
+    container.innerHTML=renderFeedbackTable(filteredFeedbacks);
+  }else if(isHasFeedbackTab){
+    addSampleBtn.style.display="flex";
+    addFbBtn.style.display="none";
+    var hasFbSamples=[];
+    for(var i=0;i<filteredSamples.length;i++){
+      if(hasTestFeedback(filteredSamples[i].record.sampleNo)){
+        hasFbSamples.push(filteredSamples[i]);
+      }
+    }
+    container.innerHTML=renderSampleTable(hasFbSamples);
+  }else if(isSampleTab){
+    addSampleBtn.style.display="flex";
+    addFbBtn.style.display="none";
+    container.innerHTML=renderSampleTable(filteredSamples);
+  }else{
+    addSampleBtn.style.display="flex";
+    addFbBtn.style.display="none";
+    container.innerHTML=renderSampleTable(filteredSamples);
+  }
+
+  bindTableEvents();
+}
+
+function renderSampleTable(samples){
+  if(samples.length===0) return "<div class=\"empty-state\">暂无数据</div>";
+  var roleHeader=showIngredientRole?"<th>配料作用</th>":"";
+  var html="<table><thead><tr><th>No</th><th>需求日期</th><th>对接人</th><th>部门</th><th>打样类型</th><th>样品编号</th><th>规格</th><th>数量</th><th>配方</th>"+roleHeader+"<th>通路</th><th>送样日期</th><th>送达日期</th><th>制样人</th><th>反馈状态</th><th>操作</th></tr></thead><tbody>";
+  for(var i=0;i<samples.length;i++){
+    var r=samples[i].record;
+    var idx=samples[i].idx;
+    var fb=getFeedbackByCode(r.sampleNo);
+    var fbBadge="";
+    if(fb && fb.testFeedback && fb.testFeedback.trim()!==""){
+      fbBadge="<span class=\"fb-badge has\" onclick=\"viewFeedback('"+r.sampleNo+"')\">有反馈</span>";
+    }else if(fb){
+      fbBadge="<span class=\"fb-badge none\">待反馈</span>";
+    }else{
+      fbBadge="<span class=\"fb-badge none\">无记录</span>";
+    }
+    var rowHtml="<tr data-sample-idx=\""+idx+"\">";
+    rowHtml+="<td>"+r.no+"</td>";
+    rowHtml+="<td data-field=\"reqDate\">"+esc(r.reqDate)+"</td>";
+    rowHtml+="<td data-field=\"contact\">"+esc(r.contact)+"</td>";
+    rowHtml+="<td data-field=\"dept\">"+esc(r.dept)+"</td>";
+    rowHtml+="<td data-field=\"sampleType\">"+esc(r.sampleType)+"</td>";
+    rowHtml+="<td data-field=\"sampleNo\">"+esc(r.sampleNo)+"</td>";
+    rowHtml+="<td data-field=\"spec\">"+esc(r.spec)+"</td>";
+    rowHtml+="<td data-field=\"quantity\">"+r.quantity+"</td>";
+    rowHtml+="<td class=\"formula-col\" data-field=\"formula\">"+esc(r.formula)+"</td>";
+    if(showIngredientRole){
+      rowHtml+="<td class=\"role-col\" data-field=\"ingredientRole\">"+esc(r.ingredientRole)+"</td>";
+    }
+    rowHtml+="<td data-field=\"channel\">"+esc(r.channel)+"</td>";
+    rowHtml+="<td data-field=\"sendDate\">"+esc(r.sendDate)+"</td>";
+    rowHtml+="<td data-field=\"arriveDate\">"+esc(r.arriveDate)+"</td>";
+    rowHtml+="<td data-field=\"maker\">"+esc(r.maker)+"</td>";
+    rowHtml+="<td>"+fbBadge+"</td>";
+    rowHtml+="<td><button class=\"del-btn\" data-sample-idx=\""+idx+"\">✕</button></td>";
+    rowHtml+="</tr>";
+    html+=rowHtml;
+  }
+  html+="</tbody></table>";
+  return html;
+}
+
+function renderFeedbackTable(feedbacks){
+  if(feedbacks.length===0) return "<div class=\"empty-state\">暂无数据</div>";
+  var html="<table><thead><tr><th>送样日期</th><th>送样产品</th><th>产品代号</th><th>测试反馈</th><th>确认</th><th>报价</th><th>备注</th><th>操作</th></tr></thead><tbody>";
+  for(var i=0;i<feedbacks.length;i++){
+    var r=feedbacks[i].record;
+    var idx=feedbacks[i].idx;
+    var rowHtml="<tr data-fb-idx=\""+idx+"\">";
+    rowHtml+="<td data-field=\"sendDate\">"+esc(r.sendDate)+"</td>";
+    rowHtml+="<td data-field=\"product\">"+esc(r.product)+"</td>";
+    rowHtml+="<td data-field=\"productCode\">"+esc(r.productCode)+"</td>";
+    rowHtml+="<td class=\"formula-col\" data-field=\"testFeedback\">"+esc(r.testFeedback)+"</td>";
+    rowHtml+="<td data-field=\"confirmed\">"+esc(r.confirmed)+"</td>";
+    rowHtml+="<td data-field=\"quoted\">"+esc(r.quoted)+"</td>";
+    rowHtml+="<td class=\"formula-col\" data-field=\"remark\">"+esc(r.remark)+"</td>";
+    rowHtml+="<td><button class=\"del-btn\" data-fb-idx=\""+idx+"\">✕</button></td>";
+    rowHtml+="</tr>";
+    html+=rowHtml;
+  }
+  html+="</tbody></table>";
+  return html;
+}
+
+// ===== 表格交互 =====
+function bindTableEvents(){
+  var cells=document.querySelectorAll("td[data-field]");
+  for(var i=0;i<cells.length;i++){
+    cells[i].ondblclick=function(e){
+      if(this.querySelector("input")||this.querySelector("textarea")) return;
+      startEdit(this);
+    };
+  }
+  var delBtns=document.querySelectorAll(".del-btn[data-sample-idx]");
+  for(var i=0;i<delBtns.length;i++){
+    delBtns[i].onclick=function(e){
+      e.stopPropagation();
+      var idx=parseInt(this.getAttribute("data-sample-idx"));
+      if(confirm("确定删除送样记录 #"+(idx+1)+" 吗？")){
+        sampleRecords.splice(idx,1);
+        for(var j=0;j<sampleRecords.length;j++){sampleRecords[j].no=j+1;}
+        refreshAll();
+      }
+    };
+  }
+  var delFbBtns=document.querySelectorAll(".del-btn[data-fb-idx]");
+  for(var i=0;i<delFbBtns.length;i++){
+    delFbBtns[i].onclick=function(e){
+      e.stopPropagation();
+      var idx=parseInt(this.getAttribute("data-fb-idx"));
+      if(confirm("确定删除反馈记录吗？")){
+        feedbackRecords.splice(idx,1);
+        refreshAll();
+      }
+    };
+  }
+}
+
+function startEdit(td){
+  var field=td.getAttribute("data-field");
+  var row=td.parentElement;
+  var sampleIdx=row.getAttribute("data-sample-idx");
+  var fbIdx=row.getAttribute("data-fb-idx");
+  var currentVal="";
+  if(sampleIdx!==null){
+    currentVal=String(sampleRecords[parseInt(sampleIdx)][field]||"");
+  }else if(fbIdx!==null){
+    currentVal=String(feedbackRecords[parseInt(fbIdx)][field]||"");
+  }
+  var isLong=(field==="formula"||field==="ingredientRole"||field==="testFeedback"||field==="remark");
+  var inputHtml;
+  if(isLong){
+    inputHtml="<textarea>"+currentVal+"</textarea>";
+  }else{
+    var ev=currentVal.split("\"").join("&quot;");
+    inputHtml="<input type=\"text\" value=\""+ev+"\">";
+  }
+
+  td.classList.add("editing");
+  td.innerHTML=inputHtml;
+  var el=td.querySelector("input,textarea");
+  el.focus();
+  if(!isLong) el.select();
+
+  el.onblur=function(){finishEdit(td,field,sampleIdx,fbIdx,el.value);};
+  el.onkeydown=function(e){
+    if(e.key==="Enter" && !e.shiftKey){
+      e.preventDefault();
+      finishEdit(td,field,sampleIdx,fbIdx,el.value);
+    }
+    if(e.key==="Escape"){
+      td.classList.remove("editing");
+      td.textContent=currentVal;
+      refreshAll();
+    }
+  };
+}
+
+function finishEdit(td,field,sampleIdx,fbIdx,newVal){
+  td.classList.remove("editing");
+  if(sampleIdx!==null){
+    var idx=parseInt(sampleIdx);
+    var oldVal=sampleRecords[idx][field];
+    if(field==="quantity") newVal=parseInt(newVal)||1;
+    sampleRecords[idx][field]=newVal;
+    if(newVal!==String(oldVal)){
+      var cellKey="s_"+idx+"_"+field;
+      editedCells[cellKey]=true;
+    }
+    if(field==="formula" && newVal!==oldVal){
+      sampleRecords[idx].ingredientRole=analyzeIngredientRole(newVal);
+    }
+  }else if(fbIdx!==null){
+    var idx=parseInt(fbIdx);
+    feedbackRecords[idx][field]=newVal;
+    var cellKey="f_"+idx+"_"+field;
+    editedCells[cellKey]=true;
+  }
+  refreshAll();
+}
+
+function analyzeIngredientRole(formula){
+  if(!formula) return "";
+  var parts=formula.split("、");
+  var roles=[];
+  var hasFruit=false,hasAcid=false,hasThickener=false,hasSugar=false,hasVitamin=false,hasFlavor=false,hasSalt=false,hasHerb=false,hasColor=false;
+  for(var i=0;i<parts.length;i++){
+    var p=parts[i].trim();
+    if(p.indexOf("汁")!==-1||p.indexOf("浆")!==-1||p.indexOf("浓缩")!==-1) hasFruit=true;
+    if(p.indexOf("柠檬酸")!==-1||p.indexOf("苹果酸")!==-1||p.indexOf("酒石酸")!==-1) hasAcid=true;
+    if(p.indexOf("黄原胶")!==-1||p.indexOf("纤维素")!==-1||p.indexOf("果胶")!==-1) hasThickener=true;
+    if(p.indexOf("糖")!==-1||p.indexOf("果葡")!==-1) hasSugar=true;
+    if(p.indexOf("维生素")!==-1) hasVitamin=true;
+    if(p.indexOf("香精")!==-1) hasFlavor=true;
+    if(p.indexOf("老盐")!==-1||p.indexOf("柠檬酸钠")!==-1) hasSalt=true;
+    if(p.indexOf("紫苏")!==-1||p.indexOf("香茅")!==-1||p.indexOf("玫瑰茄")!==-1) hasHerb=true;
+    if(p.indexOf("胡萝卜素")!==-1) hasColor=true;
+  }
+  if(hasFruit) roles.push("果汁/浓缩汁类提供主体风味基底与天然果香");
+  if(hasSugar) roles.push("糖类构建甜味基础与口感饱满度");
+  if(hasAcid) roles.push("酸味剂调节酸甜平衡、优化风味层次");
+  if(hasThickener) roles.push("增稠剂/胶体确保浓浆质地均匀与悬浮稳定性");
+  if(hasVitamin) roles.push("维生素C起抗氧化护色作用");
+  if(hasFlavor) roles.push("食用香精增强香气表现力");
+  if(hasSalt) roles.push("盐类提供咸甜平衡或缓冲酸感，丰富口感层次");
+  if(hasHerb) roles.push("草本植物提取物赋予独特清香与差异化风味");
+  if(hasColor) roles.push("天然色素补充色泽并兼具营养功能");
+  if(roles.length===0) roles.push("配方成分共同构建产品风味与质地体系");
+  return roles.join("；")+"。";
+}
+
+// ===== 反馈功能 =====
+function viewFeedback(code){
+  var fb=getFeedbackByCode(code);
+  if(!fb){alert("暂无反馈记录");return;}
+  var sample=null;
+  for(var i=0;i<sampleRecords.length;i++){
+    if(sampleRecords[i].sampleNo===code){sample=sampleRecords[i];break;}
+  }
+  document.getElementById("fbModalTitle").textContent="反馈详情 - "+code;
+  var html="";
+  html+="<div class=\"fb-field\"><label>送样产品</label><div style=\"font-size:15px;font-weight:600\">"+esc(fb.product)+"</div></div>";
+  html+="<div class=\"fb-field\"><label>送样日期</label><div>"+esc(fb.sendDate)+"</div></div>";
+  html+="<div class=\"fb-field\"><label>测试反馈</label><div style=\"background:#F9F9F9;padding:10px;border-radius:6px;line-height:1.6\">"+(fb.testFeedback?esc(fb.testFeedback):"<span style=\"color:#CCC\">暂无测试反馈</span>")+"</div></div>";
+  html+="<div class=\"fb-field\"><label>确认状态</label><div>"+esc(fb.confirmed||"未确认")+"</div></div>";
+  html+="<div class=\"fb-field\"><label>报价</label><div>"+esc(fb.quoted||"未报价")+"</div></div>";
+  if(fb.remark){
+    html+="<div class=\"fb-field\"><label>备注 / 修改建议</label><div style=\"background:#FFF9E6;padding:10px;border-radius:6px;line-height:1.6\">"+esc(fb.remark)+"</div></div>";
+  }
+  html+="<div style=\"margin-top:16px;padding-top:12px;border-top:1px solid #F0F0F0;font-size:12px;color:#999\">";
+  html+="<button class=\"btn btn-outline btn-sm\" onclick=\"editFeedbackInline('"+code+"')\">编辑反馈</button>";
+  html+="</div>";
+  document.getElementById("fbModalBody").innerHTML=html;
+  document.getElementById("fbModalOverlay").classList.add("show");
+}
+
+function editFeedbackInline(code){
+  var fb=getFeedbackByCode(code);
+  if(!fb) return;
+  document.getElementById("fbModalBody").innerHTML=
+  "<div class=\"fb-field\"><label>测试反馈</label><textarea id=\"editFbTest\" style=\"min-height:100px\">"+esc(fb.testFeedback)+"</textarea></div>"+
+  "<div class=\"fb-field\"><label>确认状态</label><input type=\"text\" id=\"editFbConfirm\" value=\""+esc(fb.confirmed)+"\"></div>"+
+  "<div class=\"fb-field\"><label>报价</label><input type=\"text\" id=\"editFbQuoted\" value=\""+esc(fb.quoted)+"\"></div>"+
+  "<div class=\"fb-field\"><label>备注</label><textarea id=\"editFbRemark\" style=\"min-height:80px\">"+esc(fb.remark)+"</textarea></div>"+
+  "<div style=\"margin-top:12px\"><button class=\"btn btn-primary btn-sm\" onclick=\"saveFeedbackEdit('"+code+"')\">保存</button> <button class=\"btn btn-outline btn-sm\" onclick=\"viewFeedback('"+code+"')\">取消</button></div>";
+}
+
+function saveFeedbackEdit(code){
+  var fb=getFeedbackByCode(code);
+  if(!fb) return;
+  fb.testFeedback=document.getElementById("editFbTest").value;
+  fb.confirmed=document.getElementById("editFbConfirm").value;
+  fb.quoted=document.getElementById("editFbQuoted").value;
+  fb.remark=document.getElementById("editFbRemark").value;
+  viewFeedback(code);
+  refreshAll();
+}
+
+// ===== 添加反馈弹窗 =====
+function showAddFeedback(){
+  document.getElementById("addFbCode").value="";
+  document.getElementById("addFbProduct").value="";
+  document.getElementById("addFbDate").value="";
+  document.getElementById("addFbTest").value="";
+  document.getElementById("addFbConfirm").value="";
+  document.getElementById("addFbQuoted").value="";
+  document.getElementById("addFbRemark").value="";
+  document.getElementById("addFbModalOverlay").classList.add("show");
+}
+
+document.getElementById("addFbCode").oninput=function(){
+  var code=this.value.trim();
+  for(var i=0;i<sampleRecords.length;i++){
+    if(sampleRecords[i].sampleNo===code){
+      document.getElementById("addFbProduct").value=sampleRecords[i].sampleType;
+      document.getElementById("addFbDate").value=sampleRecords[i].sendDate;
+      return;
+    }
+  }
+  document.getElementById("addFbProduct").value="";
+  document.getElementById("addFbDate").value="";
+};
+
+function submitAddFeedback(){
+  var code=document.getElementById("addFbCode").value.trim();
+  if(!code){alert("请输入产品代号");return;}
+  var existing=getFeedbackByCode(code);
+  if(existing){
+    if(!confirm("该产品代号已有反馈记录，是否覆盖？")) return;
+    existing.product=document.getElementById("addFbProduct").value||existing.product;
+    existing.sendDate=document.getElementById("addFbDate").value||existing.sendDate;
+    existing.testFeedback=document.getElementById("addFbTest").value;
+    existing.confirmed=document.getElementById("addFbConfirm").value;
+    existing.quoted=document.getElementById("addFbQuoted").value;
+    existing.remark=document.getElementById("addFbRemark").value;
+  }else{
+    feedbackRecords.push({
+      sendDate:document.getElementById("addFbDate").value,
+      product:document.getElementById("addFbProduct").value,
+      productCode:code,
+      testFeedback:document.getElementById("addFbTest").value,
+      confirmed:document.getElementById("addFbConfirm").value,
+      quoted:document.getElementById("addFbQuoted").value,
+      remark:document.getElementById("addFbRemark").value
+    });
+  }
+  document.getElementById("addFbModalOverlay").classList.remove("show");
+  refreshAll();
+}
+
+// ===== 添加行 =====
+function addSampleRow(){
+  var newNo=sampleRecords.length+1;
+  sampleRecords.push({
+    no:newNo,reqDate:"",contact:"",dept:"蓝瓶",sampleType:"",sampleNo:"",spec:"",quantity:1,
+    formula:"",ingredientRole:"",channel:"否",sendDate:"",arriveDate:"",maker:"",remark:""
+  });
+  refreshAll();
+}
+
+// ===== 智能分类录入 =====
+function smartParse(){
+  var text=document.getElementById("smartInput").value.trim();
+  if(!text){document.getElementById("smartResult").textContent="请输入文本";return;}
+  var parts=text.split(/\s+/);
+  var result={reqDate:"",contact:"",dept:"蓝瓶",sampleType:"",sampleNo:"",spec:"",quantity:1,maker:"闫世强"};
+  for(var i=0;i<parts.length;i++){
+    var p=parts[i];
+    if(/^\d{4}-\d{2}-\d{2}$/.test(p) && !result.reqDate) result.reqDate=p;
+    else if(/^[A-Z]{2,4}-[A-Z]{2,4}\d+-[A-Z]{2,4}$/.test(p)) result.sampleNo=p;
+    else if(/^\d+g\/|^\d+kg\/|^\d+ml\/|^\d+L\//.test(p)) result.spec=p;
+    else if(/^\d+$/.test(p)) result.quantity=parseInt(p);
+    else if(p==="Hack"||p==="hack") result.contact="Hack";
+    else if(p==="闫世强"||p==="闫") result.maker="闫世强";
+    else if(!result.sampleType && p.length>2 && !/^\d/.test(p)) result.sampleType=p;
+  }
+  if(!result.sampleNo && parts.length>=5){
+    for(var i=0;i<parts.length;i++){
+      if(parts[i].indexOf("-")!==-1 && parts[i].length>8){result.sampleNo=parts[i];break;}
+    }
+  }
+  var newNo=sampleRecords.length+1;
+  sampleRecords.push({
+    no:newNo,reqDate:result.reqDate,contact:result.contact,dept:result.dept,
+    sampleType:result.sampleType,sampleNo:result.sampleNo,spec:result.spec,
+    quantity:result.quantity,formula:"",ingredientRole:"",channel:"否",
+    sendDate:result.reqDate,arriveDate:"",maker:result.maker,remark:""
+  });
+  document.getElementById("smartResult").textContent="已添加记录 #"+newNo+" - "+result.sampleType+" ("+result.sampleNo+")";
+  document.getElementById("smartInput").value="";
+  refreshAll();
+}
+
+// ===== CSV导出 =====
+function exportCSV(){
+  var BOM="\uFEFF";
+  var csv="";
+  csv+="送样记录\n";
+  csv+="No,需求日期,对接人,部门,打样类型,样品编号,规格,数量,配方,配料作用,通路,送样日期,送达日期,制样人,备注\n";
+  for(var i=0;i<sampleRecords.length;i++){
+    var r=sampleRecords[i];
+    csv+=[r.no,r.reqDate,r.contact,r.dept,"\""+r.sampleType+"\"",r.sampleNo,r.spec,r.quantity,"\""+r.formula+"\"","\""+r.ingredientRole+"\"",r.channel,r.sendDate,r.arriveDate,r.maker,r.remark].join(",")+"\n";
+  }
+  csv+="\n反馈记录\n";
+  csv+="送样日期,送样产品,产品代号,测试反馈,确认,报价,备注\n";
+  for(var i=0;i<feedbackRecords.length;i++){
+    var f=feedbackRecords[i];
+    csv+=[f.sendDate,"\""+f.product+"\"",f.productCode,"\""+f.testFeedback+"\"",f.confirmed,f.quoted,"\""+f.remark+"\""].join(",")+"\n";
+  }
+  var blob=new Blob([BOM+csv],{type:"text/csv;charset=utf-8"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=url;
+  a.download="样品管理导出_"+new Date().toISOString().slice(0,10)+".csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ===== 刷新所有 =====
+function refreshAll(){
+  renderDashboard();
+  renderFilters();
+  renderTables();
+}
+
+// ===== 事件绑定 =====
+document.getElementById("filterToggle").onclick=function(){
+  var body=document.getElementById("filterBody");
+  this.classList.toggle("collapsed");
+  body.classList.toggle("hidden");
+};
+document.getElementById("smartToggle").onclick=function(){
+  var body=document.getElementById("smartBody");
+  this.classList.toggle("collapsed");
+  body.classList.toggle("hidden");
+};
+
+var tabs=document.querySelectorAll(".tab");
+for(var i=0;i<tabs.length;i++){
+  tabs[i].onclick=function(){
+    var prev=document.querySelector(".tab.active");
+    if(prev) prev.classList.remove("active");
+    this.classList.add("active");
+    currentTab=this.getAttribute("data-tab");
+    renderTables();
+  };
+}
+
+document.getElementById("toggleIngredient").onclick=function(){
+  showIngredientRole=!showIngredientRole;
+  this.textContent=showIngredientRole?"隐藏配料作用":"显示配料作用";
+  renderTables();
+};
+
+document.getElementById("exportBtn").onclick=exportCSV;
+document.getElementById("smartParseBtn").onclick=smartParse;
+document.getElementById("addSampleRow").onclick=addSampleRow;
+document.getElementById("addFeedbackRow").onclick=showAddFeedback;
+
+document.getElementById("addFbSubmit").onclick=submitAddFeedback;
+document.getElementById("addFbCancel").onclick=function(){document.getElementById("addFbModalOverlay").classList.remove("show");};
+document.getElementById("addFbModalClose").onclick=function(){document.getElementById("addFbModalOverlay").classList.remove("show");};
+
+document.getElementById("fbModalClose").onclick=function(){document.getElementById("fbModalOverlay").classList.remove("show");};
+document.getElementById("fbModalOverlay").onclick=function(e){if(e.target===this){this.classList.remove("show");}};
+document.getElementById("addFbModalOverlay").onclick=function(e){if(e.target===this){this.classList.remove("show");}};
+
+document.getElementById("keywordSearch").oninput=function(){renderTables();};
+document.getElementById("codeSearch").oninput=function(){renderTables();};
+
+// ===== 初始渲染 =====
+console.log("数据加载完成，送样:"+sampleRecords.length+" 反馈:"+feedbackRecords.length);
+refreshAll();
+</script>
+</body>
+</html>
