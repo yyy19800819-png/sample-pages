@@ -170,6 +170,8 @@ td.edited{background:#E8F4FD}
 <div class="action-bar" style="padding:12px 16px 8px">
 <button class="btn btn-outline btn-sm" id="toggleIngredient">隐藏配料作用</button>
 <button class="btn btn-primary btn-sm" id="exportBtn">导出 CSV</button>
+<button class="btn btn-outline btn-sm" id="exportJsonBtn">导出数据</button>
+<button class="btn btn-outline btn-sm" id="importJsonBtn">导入数据</button>
 </div>
 
 <div class="table-wrap" id="tableContainer"></div>
@@ -221,8 +223,83 @@ var currentTab;
 var showIngredientRole;
 var editedCells;
 
-sampleRecords = [
-{no:1,reqDate:"2026-05-26",contact:"Hack",dept:"蓝瓶",sampleType:"凤梨百香果复合饮料浓浆",sampleNo:"SMX-AGB32-PAL",spec:"300g/瓶",quantity:2,formula:"水、菠萝汁、白砂糖、百香果汁、菠萝浓缩汁、柠檬酸、维生素C、果胶、食用香精、黄原胶",ingredientRole:"菠萝汁与菠萝浓缩汁构成主体凤梨风味基底，百香果汁赋予复合果香层次感，柠檬酸调节酸甜平衡，维生素C起抗氧化护色作用，果胶与黄原胶复配提供浓浆稠度与悬浮稳定性。",channel:"否",sendDate:"2026-05-27",arriveDate:"2026-05-28",maker:"闫世强",remark:""},
+// ===== localStorage 持久化 =====
+var LS_KEY_SAMPLES = "sampleManager_samples";
+var LS_KEY_FEEDBACK = "sampleManager_feedback";
+
+function loadFromLocalStorage() {
+  try {
+    var savedSamples = localStorage.getItem(LS_KEY_SAMPLES);
+    var savedFeedback = localStorage.getItem(LS_KEY_FEEDBACK);
+    if (savedSamples !== null && savedFeedback !== null) {
+      sampleRecords = JSON.parse(savedSamples);
+      feedbackRecords = JSON.parse(savedFeedback);
+      return true;
+    }
+  } catch (e) {
+    console.warn("localStorage 数据解析失败，使用默认数据", e);
+  }
+  return false;
+}
+
+function saveToLocalStorage() {
+  try {
+    localStorage.setItem(LS_KEY_SAMPLES, JSON.stringify(sampleRecords));
+    localStorage.setItem(LS_KEY_FEEDBACK, JSON.stringify(feedbackRecords));
+  } catch (e) {
+    console.warn("localStorage 写入失败", e);
+  }
+}
+
+function exportJSON() {
+  var data = {
+    sampleRecords: sampleRecords,
+    feedbackRecords: feedbackRecords,
+    exportTime: new Date().toISOString()
+  };
+  var jsonStr = JSON.stringify(data, null, 2);
+  var blob = new Blob(["\uFEFF" + jsonStr], { type: "application/json;charset=utf-8" });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = "样品管理备份_" + new Date().toISOString().slice(0, 10) + ".json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importJSON() {
+  var input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json";
+  input.onchange = function () {
+    var file = input.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      try {
+        var data = JSON.parse(e.target.result);
+        if (!data.sampleRecords || !data.feedbackRecords) {
+          alert("文件格式不正确：缺少 sampleRecords 或 feedbackRecords");
+          return;
+        }
+        sampleRecords = data.sampleRecords;
+        feedbackRecords = data.feedbackRecords;
+        saveToLocalStorage();
+        refreshAll();
+        alert("数据导入成功！送样 " + sampleRecords.length + " 条，反馈 " + feedbackRecords.length + " 条");
+      } catch (err) {
+        alert("JSON 解析失败：" + err.message);
+      }
+    };
+    reader.readAsText(file, "UTF-8");
+  };
+  input.click();
+}
+
+// ===== 初始化数据（localStorage 优先） =====
+var loaded = loadFromLocalStorage();
+if (!loaded) {
+  sampleRecords = [
 {no:2,reqDate:"2026-05-26",contact:"Hack",dept:"蓝瓶",sampleType:"草莓饮料浓浆（未调香）",sampleNo:"SSB-AG377-PAD",spec:"300g/瓶",quantity:2,formula:"红颜草莓浆、水、果葡糖浆、白砂糖、浓缩苹果汁、柠檬酸、黄原胶、羧甲基纤维素钠",ingredientRole:"红颜草莓浆提供天然草莓风味与色泽，果葡糖浆与白砂糖构建甜味基础，浓缩苹果汁补充果香饱满度，黄原胶与羧甲基纤维素钠协同增稠确保质地均匀。",channel:"否",sendDate:"2026-05-27",arriveDate:"2026-05-28",maker:"闫世强",remark:""},
 {no:3,reqDate:"2026-05-26",contact:"Hack",dept:"蓝瓶",sampleType:"草莓饮料浓浆（调香）",sampleNo:"SSB-AG378-PAD",spec:"300g/瓶",quantity:2,formula:"红颜草莓浆、水、果葡糖浆、白砂糖、浓缩苹果汁、食用香精、柠檬酸、黄原胶、羧甲基纤维素钠",ingredientRole:"在未调香版本基础上添加食用香精强化草莓香气表现力，红颜草莓浆提供真实果肉感与色泽基底，黄原胶与CMC复配增稠体系保持浓浆稳定性。",channel:"否",sendDate:"2026-05-27",arriveDate:"2026-05-28",maker:"闫世强",remark:""},
 {no:4,reqDate:"2026-05-26",contact:"Hack",dept:"蓝瓶",sampleType:"复合莓饮料浓浆(未调香)",sampleNo:"SMX-AGB33-PAD",spec:"300g/瓶",quantity:2,formula:"水、蓝莓汁、草莓浆、白砂糖、苹果浓缩汁、果葡糖浆、树莓汁、DL苹果酸、维生素C、柠檬酸、黄原胶、羧甲基纤维素钠",ingredientRole:"蓝莓汁与树莓汁提供复合莓果风味骨架，草莓浆增加柔和甜感，果葡糖浆与白砂糖平衡酸甜，DL苹果酸与柠檬酸协同调酸，维生素C抗氧化护色，黄原胶与CMC复配增稠。",channel:"否",sendDate:"2026-05-27",arriveDate:"2026-05-28",maker:"闫世强",remark:""},
@@ -266,6 +343,8 @@ feedbackRecords = [
 {sendDate:"2026-06-10",product:"苹果葡萄复合汁饮料浓浆",productCode:"SMX-AGB57-PAL",testFeedback:"苹果风味感知弱，可稍微提升苹果的风味表现，另外，葡萄的层次感也需要调整，可稍增加一些山葡萄带来的香气和酵感",confirmed:"",quoted:"",remark:"葡萄的风味要有发酵感，后段风味加强，参考山葡萄标样"},
 {sendDate:"2026-06-10",product:"苹果葡萄复合汁饮料浓浆",productCode:"SMX-AGB58-PAL",testFeedback:"苹果风味感知弱，可稍微提升苹果的风味表现，另外，葡萄的层次感也需要调整，可稍增加一些山葡萄带来的香气和酵感",confirmed:"",quoted:"",remark:""}
 ];
+  saveToLocalStorage();
+}
 
 currentTab = "all";
 showIngredientRole = true;
@@ -833,6 +912,7 @@ function exportCSV(){
 
 // ===== 刷新所有 =====
 function refreshAll(){
+  saveToLocalStorage();
   renderDashboard();
   renderFilters();
   renderTables();
@@ -868,6 +948,8 @@ document.getElementById("toggleIngredient").onclick=function(){
 };
 
 document.getElementById("exportBtn").onclick=exportCSV;
+document.getElementById("exportJsonBtn").onclick=exportJSON;
+document.getElementById("importJsonBtn").onclick=importJSON;
 document.getElementById("smartParseBtn").onclick=smartParse;
 document.getElementById("addSampleRow").onclick=addSampleRow;
 document.getElementById("addFeedbackRow").onclick=showAddFeedback;
